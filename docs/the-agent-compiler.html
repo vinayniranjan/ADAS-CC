@@ -1,0 +1,623 @@
+<title>The Agent Compiler</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Source+Serif+4:ital,wght@0,400;0,600;0,700;1,400;1,600&display=swap">
+<style>
+  :root {
+    --paper: #ECEEF0;
+    --paper-raised: #F8F9F7;
+    --ink: #171A1D;
+    --ink-soft: #4B5158;
+    --ink-faint: #6E747A;
+    --line: #D5D9DA;
+    --line-strong: #B9BFC1;
+    --steel: #2E6B76;
+    --steel-ink: #245158;
+    --steel-soft: #DCEBEC;
+    --brass: #9C6520;
+    --brass-strong: #B8792A;
+    --brass-soft: #F3E6D2;
+    --brick: #9C3B33;
+    --brick-soft: #F5DFDB;
+    --shadow: rgba(23, 26, 29, 0.10);
+    --font-display: 'IBM Plex Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+    --font-body: 'Source Serif 4', Georgia, 'Times New Roman', serif;
+    --font-mono: 'IBM Plex Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #14171A;
+      --paper-raised: #1B1F23;
+      --ink: #E9EAE6;
+      --ink-soft: #ABB1B5;
+      --ink-faint: #82888D;
+      --line: #2B3034;
+      --line-strong: #3A4046;
+      --steel: #6BB4BE;
+      --steel-ink: #8FCBD3;
+      --steel-soft: #1E3438;
+      --brass: #E0A857;
+      --brass-strong: #D99B45;
+      --brass-soft: #3A2E1C;
+      --brick: #E08981;
+      --brick-soft: #3A2220;
+      --shadow: rgba(0, 0, 0, 0.4);
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --paper: #14171A;
+    --paper-raised: #1B1F23;
+    --ink: #E9EAE6;
+    --ink-soft: #ABB1B5;
+    --ink-faint: #82888D;
+    --line: #2B3034;
+    --line-strong: #3A4046;
+    --steel: #6BB4BE;
+    --steel-ink: #8FCBD3;
+    --steel-soft: #1E3438;
+    --brass: #E0A857;
+    --brass-strong: #D99B45;
+    --brass-soft: #3A2E1C;
+    --brick: #E08981;
+    --brick-soft: #3A2220;
+    --shadow: rgba(0, 0, 0, 0.4);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--font-body);
+    font-size: 1.05rem;
+    line-height: 1.7;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  ::selection { background: var(--steel-soft); color: var(--steel-ink); }
+
+  a { color: var(--steel-ink); text-decoration-color: var(--line-strong); text-underline-offset: 3px; }
+  a:hover { text-decoration-color: currentColor; }
+  a:focus-visible, button:focus-visible { outline: 2px solid var(--steel); outline-offset: 2px; }
+
+  h1, h2, h3 { font-family: var(--font-display); font-weight: 700; letter-spacing: -0.01em; text-wrap: balance; color: var(--ink); }
+
+  .page { max-width: 860px; margin: 0 auto; padding: 0 28px 96px; }
+
+  /* ---- top nav ---- */
+  .topnav {
+    position: sticky; top: 0; z-index: 20;
+    background: color-mix(in srgb, var(--paper) 88%, transparent);
+    backdrop-filter: blur(6px);
+    border-bottom: 1px solid var(--line);
+  }
+  .topnav-inner {
+    max-width: 860px; margin: 0 auto; padding: 14px 28px;
+    display: flex; align-items: center; gap: 24px;
+    overflow-x: auto;
+  }
+  .topnav-mark { font-family: var(--font-mono); font-weight: 700; font-size: 0.85rem; letter-spacing: 0.04em; white-space: nowrap; }
+  .topnav-links { display: flex; gap: 18px; list-style: none; margin: 0; padding: 0; white-space: nowrap; }
+  .topnav-links a {
+    font-family: var(--font-mono); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.09em;
+    color: var(--ink-soft); text-decoration: none;
+  }
+  .topnav-links a:hover { color: var(--ink); }
+
+  /* ---- ruler divider ---- */
+  .ruler {
+    height: 16px; margin: 8px 0 0;
+    background-image: repeating-linear-gradient(to right, var(--line-strong) 0 1px, transparent 1px 8px);
+    background-position: bottom; background-repeat: repeat-x; background-size: 100% 8px;
+    opacity: 0.7;
+  }
+
+  section { padding-top: 64px; }
+  section:first-of-type { padding-top: 40px; }
+
+  .eyebrow {
+    font-family: var(--font-mono); font-size: 0.75rem; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.12em; margin: 0 0 10px;
+  }
+  .eyebrow.steel { color: var(--steel-ink); }
+  .eyebrow.brass { color: var(--brass); }
+
+  h2 { font-size: clamp(1.5rem, 3.4vw, 2.05rem); margin: 0 0 18px; }
+
+  .prose { max-width: 66ch; }
+  .prose p { margin: 0 0 16px; color: var(--ink); }
+  .prose p.soft { color: var(--ink-soft); }
+
+  .lede {
+    font-size: 1.2rem; line-height: 1.6; max-width: 62ch;
+  }
+
+  /* masthead */
+  .masthead { padding: 56px 0 20px; }
+  .masthead h1 { font-size: clamp(2.5rem, 7vw, 4rem); margin: 6px 0 18px; }
+  .masthead .tagline {
+    font-family: var(--font-body); font-style: italic; font-size: 1.3rem;
+    color: var(--ink-soft); max-width: 46ch; margin: 0 0 28px; line-height: 1.5;
+  }
+  .chips { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 8px; }
+  .chip {
+    font-family: var(--font-mono); font-size: 0.72rem; letter-spacing: 0.04em;
+    padding: 5px 11px; border-radius: 3px; border: 1px solid var(--line-strong);
+    color: var(--ink-soft); background: var(--paper-raised);
+  }
+
+  /* callout */
+  .callout {
+    border-left: 3px solid var(--brass-strong);
+    background: var(--brass-soft);
+    padding: 18px 22px;
+    border-radius: 0 4px 4px 0;
+    margin: 28px 0;
+  }
+  .callout p { margin: 0; color: var(--ink); }
+  .callout p + p { margin-top: 10px; }
+  .callout .label {
+    font-family: var(--font-mono); font-size: 0.7rem; text-transform: uppercase;
+    letter-spacing: 0.1em; color: var(--brass); margin: 0 0 8px; font-weight: 600;
+  }
+
+  /* figures */
+  figure { margin: 32px 0 8px; }
+  figure svg { width: 100%; height: auto; display: block; }
+  .figure-frame {
+    background: var(--paper-raised); border: 1px solid var(--line);
+    border-radius: 8px; padding: 20px 16px 10px;
+    overflow-x: auto;
+  }
+  figcaption {
+    font-family: var(--font-mono); font-size: 0.78rem; color: var(--ink-faint);
+    margin-top: 10px; line-height: 1.5;
+  }
+
+  /* tables */
+  .table-wrap { overflow-x: auto; margin: 24px 0; border: 1px solid var(--line); border-radius: 8px; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.92rem; min-width: 560px; }
+  thead th {
+    font-family: var(--font-mono); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em;
+    text-align: left; color: var(--ink-faint); padding: 12px 16px; border-bottom: 1px solid var(--line-strong);
+    background: var(--paper-raised);
+  }
+  tbody td { padding: 12px 16px; border-bottom: 1px solid var(--line); vertical-align: top; color: var(--ink); }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:nth-child(even) { background: color-mix(in srgb, var(--paper-raised) 55%, transparent); }
+  td.mono, th.mono { font-family: var(--font-mono); font-size: 0.82rem; white-space: nowrap; }
+  td .soft { color: var(--ink-soft); font-size: 0.88rem; }
+
+  /* terminal block */
+  .terminal {
+    background: var(--ink); color: var(--paper);
+    font-family: var(--font-mono); font-size: 0.82rem; line-height: 1.65;
+    border-radius: 8px; padding: 18px 20px; margin: 24px 0;
+    overflow-x: auto; box-shadow: 0 8px 24px var(--shadow);
+  }
+  .terminal .prompt { color: var(--brass-strong); }
+  .terminal .dim { color: color-mix(in srgb, var(--paper) 55%, transparent); }
+  .terminal .hl { color: var(--steel); }
+  .terminal pre { margin: 0; white-space: pre; }
+
+  code, .code-inline {
+    font-family: var(--font-mono); font-size: 0.86em;
+    background: var(--paper-raised); border: 1px solid var(--line);
+    padding: 1px 6px; border-radius: 4px; color: var(--ink);
+  }
+
+  .stage-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+    gap: 14px; margin: 28px 0;
+  }
+  .stage-card {
+    border: 1px solid var(--line); border-radius: 8px; padding: 16px 18px;
+    background: var(--paper-raised);
+  }
+  .stage-card .num {
+    font-family: var(--font-mono); font-size: 0.72rem; color: var(--steel-ink);
+    letter-spacing: 0.08em;
+  }
+  .stage-card h3 { font-size: 1.02rem; margin: 4px 0 8px; }
+  .stage-card p { margin: 0; font-size: 0.9rem; color: var(--ink-soft); line-height: 1.55; }
+
+  footer {
+    margin-top: 80px; padding-top: 28px; border-top: 1px solid var(--line);
+    font-family: var(--font-mono); font-size: 0.78rem; color: var(--ink-faint);
+    display: flex; flex-wrap: wrap; gap: 8px 24px; justify-content: space-between;
+  }
+
+  @media (max-width: 560px) {
+    .page { padding: 0 18px 72px; }
+    .topnav-inner { padding: 12px 18px; }
+  }
+</style>
+
+<nav class="topnav">
+  <div class="topnav-inner">
+    <span class="topnav-mark">ADAS-CC</span>
+    <ul class="topnav-links">
+      <li><a href="#overview">Overview</a></li>
+      <li><a href="#pipeline">Pipeline</a></li>
+      <li><a href="#boundary">Boundary</a></li>
+      <li><a href="#generated">Generated system</a></li>
+      <li><a href="#update-mode">Update mode</a></li>
+      <li><a href="#quickstart">Running it</a></li>
+    </ul>
+  </div>
+</nav>
+
+<div class="page">
+
+  <div class="masthead">
+    <div class="eyebrow steel">Field guide</div>
+    <h1>The Agent Compiler</h1>
+    <p class="tagline">A meta-agent that reads a repository once, then writes the multi-agent system that will maintain it — subagents, slash commands, skills, and hooks, as real files under <code>.claude/</code>.</p>
+    <div class="chips">
+      <span class="chip">Python 3.10+</span>
+      <span class="chip">LangGraph StateGraph</span>
+      <span class="chip">langchain-anthropic</span>
+      <span class="chip">Pydantic v2</span>
+      <span class="chip">Typer + Rich CLI</span>
+    </div>
+  </div>
+  <div class="ruler"></div>
+
+  <section id="overview">
+    <div class="eyebrow steel">§ Overview</div>
+    <h2>A compiler</h2>
+    <div class="prose">
+      <p class="lede">Point ADAS-CC at any repository and it produces a complete <strong>Claude&nbsp;Code</strong> project configuration — a <code>CLAUDE.md</code>, role-based subagents, slash commands, reusable skills, and enforcement hooks — tailored to that repo's stack.</p>
+      <p>It does not touch your application code, and it does not perform your coding task itself. It runs exactly once per invocation, reasons about what your repository needs, and hands the result to a human for review before anything is written.</p>
+    </div>
+
+    <div class="callout">
+      <div class="label">The distinction that matters</div>
+      <p>ADAS-CC's own internals are a five-node <strong>LangGraph</strong> pipeline running in one Python process. The planner / implementer / reviewer / tester agents it writes to <code>.claude/agents/</code> are a <em>separate</em> system — plain markdown files that <strong>Claude Code</strong> reads on every future session in the target repo. The two are connected by one act (a file write), never by a shared runtime.</p>
+    </div>
+  </section>
+
+  <div class="ruler"></div>
+
+  <section id="pipeline">
+    <div class="eyebrow steel">§ 01 — Orchestration</div>
+    <h2>Five deterministic stages, one optional LLM call</h2>
+    <div class="prose">
+      <p>The generator itself is a <code>StateGraph</code> over a plain <code>AdasState</code> TypedDict, compiled with a <code>MemorySaver</code> checkpointer and driven by a <code>thread_id</code> the CLI mints per run. Only one stage — <code>design</code> — ever calls out to an LLM; everything else is ordinary, reproducible Python.</p>
+    </div>
+
+    <figure>
+      <div class="figure-frame">
+        <svg viewBox="0 0 1040 300" role="img" aria-label="Flowchart: scan feeds design, which feeds generate, which feeds an approve checkpoint that can loop back to design on revise, end on reject, or continue to write and then end on approve.">
+          <defs>
+            <marker id="arrowSteel" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M0,0 L10,5 L0,10 z" style="fill:var(--steel)"></path>
+            </marker>
+            <marker id="arrowBrick" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M0,0 L10,5 L0,10 z" style="fill:var(--brick)"></path>
+            </marker>
+          </defs>
+
+          <!-- main row boxes -->
+          <g style="font-family:var(--font-mono)">
+            <rect x="20" y="100" width="140" height="56" rx="7" style="fill:var(--steel-soft);stroke:var(--steel);stroke-width:1.5"></rect>
+            <text x="90" y="124" text-anchor="middle" style="fill:var(--ink);font-size:14px;font-weight:700">SCAN</text>
+            <text x="90" y="142" text-anchor="middle" style="fill:var(--ink-faint);font-size:10.5px">no LLM</text>
+
+            <rect x="230" y="100" width="140" height="56" rx="7" style="fill:var(--steel-soft);stroke:var(--steel);stroke-width:1.5"></rect>
+            <text x="300" y="120" text-anchor="middle" style="fill:var(--ink);font-size:14px;font-weight:700">DESIGN</text>
+            <text x="300" y="137" text-anchor="middle" style="fill:var(--ink-faint);font-size:10px">Claude ⇄ fallback</text>
+            <text x="300" y="149" text-anchor="middle" style="fill:var(--ink-faint);font-size:10px">rules if no API key</text>
+
+            <rect x="440" y="100" width="150" height="56" rx="7" style="fill:var(--steel-soft);stroke:var(--steel);stroke-width:1.5"></rect>
+            <text x="515" y="124" text-anchor="middle" style="fill:var(--ink);font-size:13.5px;font-weight:700">GENERATE</text>
+            <text x="515" y="142" text-anchor="middle" style="fill:var(--ink-faint);font-size:10.5px">diff vs disk</text>
+
+            <rect x="650" y="100" width="150" height="56" rx="7" style="fill:var(--steel-soft);stroke:var(--steel);stroke-width:1.5;stroke-dasharray:5 3"></rect>
+            <text x="725" y="120" text-anchor="middle" style="fill:var(--ink);font-size:13.5px;font-weight:700">APPROVE</text>
+            <text x="725" y="137" text-anchor="middle" style="fill:var(--ink-faint);font-size:10px">interrupt() —</text>
+            <text x="725" y="149" text-anchor="middle" style="fill:var(--ink-faint);font-size:10px">human checkpoint</text>
+
+            <rect x="860" y="100" width="120" height="56" rx="7" style="fill:var(--steel-soft);stroke:var(--steel);stroke-width:1.5"></rect>
+            <text x="920" y="124" text-anchor="middle" style="fill:var(--ink);font-size:14px;font-weight:700">WRITE</text>
+            <text x="920" y="142" text-anchor="middle" style="fill:var(--ink-faint);font-size:10.5px">to disk</text>
+
+            <circle cx="1012" cy="128" r="22" style="fill:var(--paper);stroke:var(--steel);stroke-width:1.5"></circle>
+            <text x="1012" y="132" text-anchor="middle" style="fill:var(--ink);font-size:10.5px;font-weight:700">END</text>
+          </g>
+
+          <!-- forward arrows -->
+          <g style="stroke:var(--steel);stroke-width:1.5;marker-end:url(#arrowSteel)">
+            <line x1="160" y1="128" x2="226" y2="128"></line>
+            <line x1="370" y1="128" x2="436" y2="128"></line>
+            <line x1="590" y1="128" x2="646" y2="128"></line>
+            <line x1="800" y1="128" x2="856" y2="128"></line>
+            <line x1="980" y1="128" x2="988" y2="128"></line>
+          </g>
+
+          <!-- revise loop -->
+          <path d="M725,100 C725,52 300,52 300,98" style="fill:none;stroke:var(--steel);stroke-width:1.5;stroke-dasharray:4 3;marker-end:url(#arrowSteel)"></path>
+          <text x="512" y="42" text-anchor="middle" style="fill:var(--steel-ink);font-family:var(--font-mono);font-size:11px;font-weight:600">revise · up to 3 rounds</text>
+
+          <!-- reject branch -->
+          <path d="M725,156 C725,205 725,205 725,235" style="fill:none;stroke:var(--brick);stroke-width:1.5;marker-end:url(#arrowBrick)"></path>
+          <text x="748" y="200" style="fill:var(--brick);font-family:var(--font-mono);font-size:11px;font-weight:600">reject /</text>
+          <text x="748" y="213" style="fill:var(--brick);font-family:var(--font-mono);font-size:11px;font-weight:600">round limit</text>
+          <circle cx="725" cy="260" r="22" style="fill:var(--brick-soft);stroke:var(--brick);stroke-width:1.5"></circle>
+          <text x="725" y="264" text-anchor="middle" style="fill:var(--brick);font-family:var(--font-mono);font-size:10.5px;font-weight:700">END</text>
+        </svg>
+      </div>
+      <figcaption>The orchestration graph: <code>scan → design → generate</code> run unconditionally; <code>approve</code> is the only branch point, looping back to <code>design</code> on revise, ending on reject, or continuing to <code>write</code>.</figcaption>
+    </figure>
+
+    <div class="stage-grid">
+      <div class="stage-card">
+        <div class="num">01 · nodes/scanner.py</div>
+        <h3>scan</h3>
+        <p>Heuristic, dependency-free repo analysis: languages, frameworks, package managers, test tooling, CI, entry points, recent git history, and any existing <code>.claude/</code> config. Read-only.</p>
+      </div>
+      <div class="stage-card">
+        <div class="num">02 · nodes/designer.py</div>
+        <h3>design</h3>
+        <p>Calls Claude via <code>ChatAnthropic.with_structured_output()</code>, constrained to the <code>DesignModel</code> schema. With no <code>ANTHROPIC_API_KEY</code>, falls back to a rule-based planner → implementer → reviewer → tester default.</p>
+      </div>
+      <div class="stage-card">
+        <div class="num">03 · nodes/generator.py</div>
+        <h3>generate</h3>
+        <p>Pure rendering: turns the <code>DesignSpec</code> into concrete <code>ProposedFile</code> entries — path, content, kind — and computes a unified diff against anything already on disk.</p>
+      </div>
+      <div class="stage-card">
+        <div class="num">04 · nodes/approval.py</div>
+        <h3>approve</h3>
+        <p>A LangGraph <code>interrupt()</code>. The graph pauses; the CLI shows the file tree and diffs; a human replies approve, view, revise, or reject — resumed via <code>Command(resume=...)</code>.</p>
+      </div>
+      <div class="stage-card">
+        <div class="num">05 · nodes/writer.py</div>
+        <h3>write</h3>
+        <p>Creates directories, writes only the approved files, and marks generated shell hooks executable. Never deletes a file it didn't propose.</p>
+      </div>
+    </div>
+  </section>
+
+  <div class="ruler"></div>
+
+  <section id="boundary">
+    <div class="eyebrow brass">§ 02 — A layer boundary</div>
+    <h2>One process writes the files; a different one reads them</h2>
+    <div class="prose">
+      <p>It's easy to conflate "multi-agent" here with the LangGraph nodes above. They aren't the same thing. The graph in <a href="#pipeline">§01</a> runs once, inside <code>adas-cc</code>, and terminates. What it leaves behind — <code>CLAUDE.md</code> and <code>.claude/*</code> — is read by <strong>Claude Code</strong> itself, in an entirely separate process, on every session afterward, for as long as the target repo exists.</p>
+    </div>
+
+    <figure>
+      <div class="figure-frame">
+        <svg viewBox="0 0 1040 340" role="img" aria-label="Diagram: the LangGraph orchestrator, running once in this repo, writes CLAUDE.md and .claude files across a boundary into the target repo, where Claude Code reads them independently in every later session.">
+          <g style="font-family:var(--font-mono)">
+            <text x="40" y="46" style="fill:var(--steel-ink);font-size:12px;font-weight:700;letter-spacing:0.06em">ORCHESTRATOR</text>
+            <text x="40" y="62" style="fill:var(--ink-faint);font-size:10.5px">this repo · one Python process · runs once</text>
+
+            <rect x="40" y="80" width="430" height="150" rx="9" style="fill:var(--steel-soft);stroke:var(--steel);stroke-width:1.5"></rect>
+            <text x="255" y="122" text-anchor="middle" style="fill:var(--ink);font-size:15px;font-weight:700">LangGraph StateGraph</text>
+            <text x="255" y="144" text-anchor="middle" style="fill:var(--ink-soft);font-size:10.5px">scan → design → generate → approve</text>
+            <text x="255" y="160" text-anchor="middle" style="fill:var(--ink-faint);font-size:10px">MemorySaver checkpointer · thread_id per run</text>
+
+            <rect x="345" y="196" width="105" height="38" rx="6" style="fill:var(--paper);stroke:var(--steel);stroke-width:1.5"></rect>
+            <text x="397" y="220" text-anchor="middle" style="fill:var(--steel-ink);font-size:11.5px;font-weight:700">write</text>
+
+            <text x="600" y="46" style="fill:var(--brass);font-size:12px;font-weight:700;letter-spacing:0.06em">GENERATED SYSTEM</text>
+            <text x="600" y="62" style="fill:var(--ink-faint);font-size:10.5px">target repo · read every later session</text>
+
+            <rect x="600" y="80" width="400" height="150" rx="9" style="fill:var(--brass-soft);stroke:var(--brass-strong);stroke-width:1.5"></rect>
+            <text x="800" y="106" text-anchor="middle" style="fill:var(--ink);font-size:14px;font-weight:700">.claude/ project</text>
+
+            <rect x="622" y="122" width="170" height="34" rx="5" style="fill:var(--paper);stroke:var(--brass-strong);stroke-width:1.2"></rect>
+            <text x="707" y="144" text-anchor="middle" style="fill:var(--ink);font-size:11px">CLAUDE.md</text>
+
+            <rect x="808" y="122" width="170" height="34" rx="5" style="fill:var(--paper);stroke:var(--brass-strong);stroke-width:1.2"></rect>
+            <text x="893" y="144" text-anchor="middle" style="fill:var(--ink);font-size:11px">agents/*.md</text>
+
+            <rect x="622" y="166" width="170" height="34" rx="5" style="fill:var(--paper);stroke:var(--brass-strong);stroke-width:1.2"></rect>
+            <text x="707" y="188" text-anchor="middle" style="fill:var(--ink);font-size:11px">commands/*.md</text>
+
+            <rect x="808" y="166" width="170" height="34" rx="5" style="fill:var(--paper);stroke:var(--brass-strong);stroke-width:1.2"></rect>
+            <text x="893" y="188" text-anchor="middle" style="fill:var(--ink);font-size:11px">skills/ + hooks</text>
+          </g>
+
+          <!-- divider -->
+          <line x1="520" y1="20" x2="520" y2="320" style="stroke:var(--line-strong);stroke-width:1.5;stroke-dasharray:2 5"></line>
+
+          <!-- crossing arrow -->
+          <path d="M450,215 C480,215 490,215 545,146" style="fill:none;stroke:var(--ink-soft);stroke-width:1.6;marker-end:url(#arrowSteel)"></path>
+          <text x="470" y="260" style="fill:var(--ink-soft);font-family:var(--font-mono);font-size:10.5px;font-weight:600">writes once, at</text>
+          <text x="470" y="273" style="fill:var(--ink-soft);font-family:var(--font-mono);font-size:10.5px;font-weight:600">generation time</text>
+
+          <text x="520" y="310" text-anchor="middle" style="fill:var(--ink-faint);font-family:var(--font-mono);font-size:10.5px">same files, read independently — no LangGraph process runs on the right</text>
+        </svg>
+      </div>
+      <figcaption>The graph's <code>write</code> stage is the only thing that ever crosses this boundary. Everything to the right runs later, in a different tool, with no dependency on LangGraph at all.</figcaption>
+    </figure>
+
+    <div class="prose">
+      <p class="soft">This is also why regeneration is safe: the scanner detects an existing <code>.claude/</code> tree, flips into update mode, and the designer is told what already exists so it proposes gaps rather than duplicates — see <a href="#update-mode">§04</a>.</p>
+    </div>
+  </section>
+
+  <div class="ruler"></div>
+
+  <section id="generated">
+    <div class="eyebrow brass">§ 03 — What gets generated</div>
+    <h2>The agent system that lives in your repo</h2>
+    <div class="prose">
+      <p>The default (offline, no API key) design produces a four-agent chain with an explicit handoff order. The LLM-driven designer is free to propose a different shape, but it's constrained to the same <code>SubagentModel</code> schema — <code>name</code>, <code>description</code>, <code>tools</code>, <code>model</code>, a full system prompt, and <code>handoff_to</code>.</p>
+    </div>
+
+    <figure>
+      <div class="figure-frame">
+        <svg viewBox="0 0 1040 260" role="img" aria-label="Diagram: the plan slash command routes to the planner agent, which hands off to implementer, then reviewer, then tester; a PostToolUse hook formats files after implementer edits, the review command routes to reviewer, and the run-tests skill supports tester, ending in a validated change.">
+          <defs>
+            <marker id="arrowBrass" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M0,0 L10,5 L0,10 z" style="fill:var(--brass-strong)"></path>
+            </marker>
+            <marker id="arrowSoft" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M0,0 L10,5 L0,10 z" style="fill:var(--ink-faint)"></path>
+            </marker>
+          </defs>
+
+          <g style="font-family:var(--font-mono)">
+            <!-- satellites top -->
+            <rect x="150" y="26" width="110" height="32" rx="5" style="fill:var(--paper);stroke:var(--line-strong);stroke-width:1.3"></rect>
+            <text x="205" y="47" text-anchor="middle" style="fill:var(--ink-soft);font-size:10.5px">/plan command</text>
+
+            <rect x="570" y="26" width="110" height="32" rx="5" style="fill:var(--paper);stroke:var(--line-strong);stroke-width:1.3"></rect>
+            <text x="625" y="47" text-anchor="middle" style="fill:var(--ink-soft);font-size:10.5px">/review command</text>
+
+            <!-- main row -->
+            <rect x="130" y="112" width="150" height="56" rx="7" style="fill:var(--brass-soft);stroke:var(--brass-strong);stroke-width:1.5"></rect>
+            <text x="205" y="146" text-anchor="middle" style="fill:var(--ink);font-size:14px;font-weight:700">PLANNER</text>
+
+            <rect x="340" y="112" width="150" height="56" rx="7" style="fill:var(--brass-soft);stroke:var(--brass-strong);stroke-width:1.5"></rect>
+            <text x="415" y="146" text-anchor="middle" style="fill:var(--ink);font-size:13.5px;font-weight:700">IMPLEMENTER</text>
+
+            <rect x="550" y="112" width="150" height="56" rx="7" style="fill:var(--brass-soft);stroke:var(--brass-strong);stroke-width:1.5"></rect>
+            <text x="625" y="146" text-anchor="middle" style="fill:var(--ink);font-size:14px;font-weight:700">REVIEWER</text>
+
+            <rect x="760" y="112" width="150" height="56" rx="7" style="fill:var(--brass-soft);stroke:var(--brass-strong);stroke-width:1.5"></rect>
+            <text x="835" y="146" text-anchor="middle" style="fill:var(--ink);font-size:14px;font-weight:700">TESTER</text>
+
+            <circle cx="965" cy="140" r="22" style="fill:var(--paper);stroke:var(--brass-strong);stroke-width:1.5"></circle>
+            <text x="965" y="137" text-anchor="middle" style="fill:var(--ink);font-size:9px;font-weight:700">DONE</text>
+
+            <!-- satellites bottom -->
+            <rect x="360" y="196" width="150" height="34" rx="5" style="fill:var(--paper);stroke:var(--line-strong);stroke-width:1.3"></rect>
+            <text x="435" y="211" text-anchor="middle" style="fill:var(--ink-soft);font-size:9.5px">PostToolUse hook</text>
+            <text x="435" y="223" text-anchor="middle" style="fill:var(--ink-faint);font-size:9px">format-changed-file.sh</text>
+
+            <rect x="770" y="196" width="130" height="34" rx="5" style="fill:var(--paper);stroke:var(--line-strong);stroke-width:1.3"></rect>
+            <text x="835" y="217" text-anchor="middle" style="fill:var(--ink-soft);font-size:10.5px">run-tests skill</text>
+          </g>
+
+          <!-- handoff arrows -->
+          <g style="stroke:var(--brass-strong);stroke-width:1.6;marker-end:url(#arrowBrass)">
+            <line x1="280" y1="140" x2="336" y2="140"></line>
+            <line x1="490" y1="140" x2="546" y2="140"></line>
+            <line x1="700" y1="140" x2="756" y2="140"></line>
+            <line x1="910" y1="140" x2="940" y2="140"></line>
+          </g>
+          <text x="308" y="130" text-anchor="middle" style="fill:var(--brass);font-family:var(--font-mono);font-size:9px">handoff</text>
+          <text x="518" y="130" text-anchor="middle" style="fill:var(--brass);font-family:var(--font-mono);font-size:9px">handoff</text>
+          <text x="728" y="130" text-anchor="middle" style="fill:var(--brass);font-family:var(--font-mono);font-size:9px">handoff</text>
+
+          <!-- satellite arrows -->
+          <path d="M205,58 L205,108" style="fill:none;stroke:var(--ink-faint);stroke-width:1.4;stroke-dasharray:4 3;marker-end:url(#arrowSoft)"></path>
+          <path d="M625,58 L625,108" style="fill:none;stroke:var(--ink-faint);stroke-width:1.4;stroke-dasharray:4 3;marker-end:url(#arrowSoft)"></path>
+          <path d="M435,196 L435,172" style="fill:none;stroke:var(--ink-faint);stroke-width:1.4;stroke-dasharray:4 3;marker-end:url(#arrowSoft)"></path>
+          <path d="M835,196 L835,172" style="fill:none;stroke:var(--ink-faint);stroke-width:1.4;stroke-dasharray:4 3;marker-end:url(#arrowSoft)"></path>
+        </svg>
+      </div>
+      <figcaption>The generated <code>.claude/</code> system in the default design: slash commands route into <code>planner</code> and <code>reviewer</code>; a hook and a skill attach to <code>implementer</code> and <code>tester</code> respectively.</figcaption>
+    </figure>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Agent</th><th>Job</th><th class="mono">Tools</th><th>Hands off to</th></tr>
+        </thead>
+        <tbody>
+          <tr><td class="mono">planner</td><td>Read the repository, identify conventions and risks, produce a concrete plan.</td><td class="mono soft">Read, Grep, Glob, Bash</td><td class="mono">implementer</td></tr>
+          <tr><td class="mono">implementer</td><td>Apply the plan with focused code changes.</td><td class="mono soft">Read, Write, Edit, Grep, Glob, Bash</td><td class="mono">reviewer</td></tr>
+          <tr><td class="mono">reviewer</td><td>Review the current diff for correctness, security, readability, coverage.</td><td class="mono soft">Read, Grep, Glob, Bash</td><td class="mono">tester</td></tr>
+          <tr><td class="mono">tester</td><td>Add or update tests and run the project suite.</td><td class="mono soft">Read, Write, Edit, Bash, Grep, Glob</td><td class="mono">— end of chain</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="prose">
+      <p>Each agent is a plain markdown file with YAML frontmatter — only <code>name</code> and <code>description</code> are required by Claude Code, but ADAS-CC also sets <code>tools</code> and <code>model</code> so every role runs at minimum privilege and the right cost/quality tradeoff.</p>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Primitive</th><th class="mono">Location</th><th>What ADAS-CC writes there</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Project memory</td><td class="mono">CLAUDE.md</td><td>Stack summary, key commands, conventions — loaded into every session and subagent.</td></tr>
+          <tr><td>Subagents</td><td class="mono">.claude/agents/&lt;name&gt;.md</td><td><code>name</code> / <code>description</code> / <code>tools</code> / <code>model</code> frontmatter plus a full system-prompt body.</td></tr>
+          <tr><td>Slash commands</td><td class="mono">.claude/commands/&lt;name&gt;.md</td><td>One-shot prompts (<code>/plan</code>, <code>/review</code>) with <code>argument-hint</code> and <code>allowed-tools</code>.</td></tr>
+          <tr><td>Skills</td><td class="mono">.claude/skills/&lt;name&gt;/SKILL.md</td><td>Reusable multi-step procedures Claude discovers and invokes on its own.</td></tr>
+          <tr><td>Hooks</td><td class="mono">.claude/settings.json</td><td><code>PreToolUse</code> / <code>PostToolUse</code> enforcement — e.g. auto-format after an edit.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout" style="border-left-color: var(--steel)">
+      <div class="label" style="color: var(--steel-ink)">Why files, not the Agent SDK's <code>agents</code> param</div>
+      <p>Markdown agents are checked into version control and reviewable in a normal PR; they behave identically whether Claude Code is run interactively or headlessly; and programmatically-defined agents take precedence over filesystem ones with the same name, so nothing here conflicts with an SDK-based setup added later.</p>
+    </div>
+  </section>
+
+  <div class="ruler"></div>
+
+  <section id="update-mode">
+    <div class="eyebrow steel">§ 04 — Update mode</div>
+    <h2>Regeneration never overwrites blind</h2>
+    <div class="prose">
+      <p>If <code>.claude/</code> already exists in the target repo, the scanner flags <code>is_update_mode</code> and records what's already there in <code>existing_claude_config</code>. The designer is told, so it proposes gaps instead of duplicates; the generator diffs every proposed file against the current one on disk. Hook entries in <code>settings.json</code> are merged in — non-hook settings are left untouched — and nothing is ever deleted that ADAS-CC didn't itself propose.</p>
+    </div>
+
+    <div class="terminal">
+      <pre><span class="prompt">$</span> adas-cc scan ./payments-service
+
+  Repo Scan
+  Primary language     python
+  Frameworks           fastapi
+  Test frameworks      pytest
+  Package managers     uv
+  CI                   github-actions
+  Files scanned        142
+  Update mode          <span class="hl">yes (.claude/ already exists)</span>
+
+  Proposed Files
+  Path                                 Kind          Status
+  CLAUDE.md                            claude_md     <span class="dim">unchanged</span>
+  .claude/agents/planner.md            agent         <span class="hl">new</span>
+  .claude/agents/security-reviewer.md  agent         <span class="hl">new</span>
+  .claude/commands/plan.md             command       <span class="hl">new</span>
+  .claude/skills/run-tests/SKILL.md    skill         <span class="hl">new</span>
+  .claude/settings.json                hook_settings <span class="dim">changed</span>
+
+  [a]pprove / [v]iew a file / [r]evise with feedback / [x] reject: <span class="prompt">_</span></pre>
+    </div>
+
+    <div class="prose">
+      <p class="soft"><code>a</code> writes every proposed file · <code>v</code> opens one file's preview and diff · <code>r</code> sends written feedback back to <code>design</code> for another pass, capped at three rounds · <code>x</code> exits without writing anything. <code>--auto-approve</code> skips the pause entirely for scripted or CI-style runs.</p>
+    </div>
+  </section>
+
+  <div class="ruler"></div>
+
+  <section id="quickstart">
+    <div class="eyebrow steel">§ 05 — Running it</div>
+    <h2>Quick start</h2>
+    <div class="terminal">
+      <pre><span class="prompt">$</span> pip install -e .
+<span class="prompt">$</span> <span class="dim"># optional — omit to use the offline rule-based designer</span>
+<span class="prompt">$</span> export ANTHROPIC_API_KEY=sk-ant-...
+<span class="prompt">$</span> adas-cc scan /path/to/your-repo
+
+<span class="dim"># skip the interactive review, write immediately</span>
+<span class="prompt">$</span> adas-cc scan /path/to/your-repo --auto-approve
+
+<span class="dim"># pick the designer model explicitly</span>
+<span class="prompt">$</span> adas-cc scan /path/to/your-repo --model claude-opus-5</pre>
+    </div>
+    <div class="prose">
+      <p class="soft">Requirements: Python 3.10+, and a target repo — a git history isn't required, but the scan report is richer when recent commits are available. The <code>ANTHROPIC_API_KEY</code> is optional and should never be committed.</p>
+    </div>
+  </section>
+
+  <footer>
+    <span>Apache-2.0</span>
+    <span>Generated <code>.claude/</code> files, reviewed by a human, checked into version control like any other change.</span>
+  </footer>
+
+</div>
