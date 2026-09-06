@@ -1,9 +1,7 @@
 ---
-description: Research the codebase and produce an implementation plan for a feature or fix
-argument-hint: [feature or issue description]
-allowed-tools: Read, Grep, Glob, WebSearch, TodoWrite
+description: Plan an implementation for a task before writing any code
+argument-hint: [task description]
+allowed-tools: Read, Grep, Glob
 ---
 
-Use the planner agent to research the codebase and produce a detailed implementation plan for the following:
-
-$ARGUMENTS
+Use the planner subagent to produce an implementation plan for: $ARGUMENTS
