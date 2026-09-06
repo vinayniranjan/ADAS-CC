@@ -254,7 +254,8 @@
     <h1>The Agent Compiler</h1>
     <p class="tagline">A meta-agent that reads a repository once, then writes the multi-agent system that will maintain it — subagents, slash commands, skills, and hooks, as real files under <code>.claude/</code>.</p>
     <div class="chips">
-      <span class="chip">Python 3.10+</span>
+      <span class="chip">Python 3.14</span>
+      <span class="chip">uv</span>
       <span class="chip">LangGraph StateGraph</span>
       <span class="chip">langchain-anthropic</span>
       <span class="chip">Pydantic v2</span>
@@ -599,19 +600,19 @@
     <div class="eyebrow steel">§ 05 — Running it</div>
     <h2>Quick start</h2>
     <div class="terminal">
-      <pre><span class="prompt">$</span> pip install -e .
+      <pre><span class="prompt">$</span> uv sync
 <span class="prompt">$</span> <span class="dim"># optional — omit to use the offline rule-based designer</span>
 <span class="prompt">$</span> export ANTHROPIC_API_KEY=sk-ant-...
-<span class="prompt">$</span> adas-cc scan /path/to/your-repo
+<span class="prompt">$</span> uv run adas-cc scan /path/to/your-repo
 
 <span class="dim"># skip the interactive review, write immediately</span>
-<span class="prompt">$</span> adas-cc scan /path/to/your-repo --auto-approve
+<span class="prompt">$</span> uv run adas-cc scan /path/to/your-repo --auto-approve
 
 <span class="dim"># pick the designer model explicitly</span>
-<span class="prompt">$</span> adas-cc scan /path/to/your-repo --model claude-opus-5</pre>
+<span class="prompt">$</span> uv run adas-cc scan /path/to/your-repo --model claude-opus-5</pre>
     </div>
     <div class="prose">
-      <p class="soft">Requirements: Python 3.10+, and a target repo — a git history isn't required, but the scan report is richer when recent commits are available. The <code>ANTHROPIC_API_KEY</code> is optional and should never be committed.</p>
+      <p class="soft">Requirements: Python 3.10+ (developed against the latest stable release, 3.14), <code>uv</code> for dependency management, and a target repo — a git history isn't required, but the scan report is richer when recent commits are available. The <code>ANTHROPIC_API_KEY</code> is optional and should never be committed.</p>
     </div>
   </section>
 

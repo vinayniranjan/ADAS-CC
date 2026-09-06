@@ -18,15 +18,6 @@
             "command": ".claude/hooks/format-changed-file.sh"
           }
         ]
-      },
-      {
-        "matcher": "Edit|Write",
-        "hooks": [
-          {
-            "type": "command",
-            "command": ".claude/hooks/format-changed-file.sh"
-          }
-        ]
       }
     ]
   }

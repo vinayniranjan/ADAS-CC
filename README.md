@@ -72,9 +72,9 @@ interrupt/resume contract is the same either way.
 ## Quick start
 
 ```bash
-pip install -e .
+uv sync
 export ANTHROPIC_API_KEY=sk-ant-...   # optional — omit to use the offline fallback design
-adas-cc scan /path/to/your-repo
+uv run adas-cc scan /path/to/your-repo
 ```
 
 You'll see the scan summary, then a table of proposed files. Choose:
@@ -87,7 +87,7 @@ You'll see the scan summary, then a table of proposed files. Choose:
 Skip the interactive review entirely:
 
 ```bash
-adas-cc scan /path/to/your-repo --auto-approve
+uv run adas-cc scan /path/to/your-repo --auto-approve
 ```
 
 ## Updating an existing `.claude/` setup
@@ -129,7 +129,8 @@ generated `.claude/` tree looks like without running the tool.
 
 ## Requirements
 
-- Python 3.10+
+- Python 3.10+ (developed and tested against the latest stable release, 3.14)
+- [`uv`](https://docs.astral.sh/uv/) for dependency management and running the CLI
 - `ANTHROPIC_API_KEY` for the LLM-driven designer (optional — see fallback above)
 - A target repo to point it at (a git repo isn't required, but recent-commit
   context in the scan report is richer if it is one)
