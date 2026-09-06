@@ -1,15 +1,8 @@
-# ADAS-CC — Advanced Developer Assistance System for Claude Code
+# ADAS-CC — The Agent Compiler for Claude Code
 
 A meta-agent, orchestrated with **LangGraph + Python**, that scans any
 repository and generates a complete, interconnected **Claude Code**
 multi-agent system: subagents, slash commands, skills, and hooks.
-
-This is a from-scratch reimplementation of the idea behind
-[manojkumardesai/adas](https://github.com/manojkumardesai/adas) — which
-targets VS Code Copilot's `.github/` customization files and runs as a
-single Copilot agent — retargeted at **Claude Code**'s `.claude/`
-customization files, and rebuilt as an explicit multi-agent LangGraph
-pipeline instead of one big agent prompt.
 
 ## What ADAS-CC does
 
@@ -24,7 +17,10 @@ You point it at a repo and it generates:
 | **Hooks**             | `.claude/settings.json`             | Deterministic enforcement (e.g. auto-format after an edit).          |
 
 See [`docs/claude-code-primitives.md`](docs/claude-code-primitives.md) for
-how each of these maps to Claude Code's actual configuration format.
+how each of these maps to Claude Code's actual configuration format, or
+[`docs/the-agent-compiler.html`](docs/the-agent-compiler.html) for a visual,
+diagram-driven field guide to the whole pipeline and the multi-agent system
+it generates.
 
 ## Architecture: a LangGraph pipeline, not one big prompt
 
